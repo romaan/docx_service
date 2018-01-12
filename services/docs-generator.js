@@ -1,95 +1,75 @@
-var JSZip = require('jszip');
-var Docxtemplater = require('docxtemplater');
 require('dotenv').config();
-
 var fs = require('fs');
 var path = require('path');
+var JSZip = require('jszip');
+var Docxtemplater = require('docxtemplater');
 
-exports.docxprocessor = function() {
-    //Load the docx file as a binary
-    var content = fs.readFileSync(path.resolve(process.env.STORAGE, 'input.docx'), 'binary');
+const INPUT_FILE = "input.docx";
+const ERROR_FILE = "error.txt";
+const OUTPUT_FILE = "output.docx";
+const FINISH_FILE = "finish.txt";
 
-    var zip = new JSZip(content);
+var getPath = function (directory, create) {
+    var create = typeof create !== "undefined" ? create : true;
+    if (create && !fs.existsSync(path.resolve(process.env.STORAGE, directory))) {
+        fs.mkdirSync(path.resolve(process.env.STORAGE, directory));
+    }
+    return path.resolve(process.env.STORAGE, directory);
+};
 
-    var doc = new Docxtemplater();
-    doc.loadZip(zip);
+exports.docxprocessor = function(projectId, template, data) {
 
-    //set the templateVariables
-    doc.setData({
-        "table1": {
-            "data": [
-                [
-                    "Age",
-                    "44",
-                    "33",
-                    "42",
-                    "19"
-                ],
-                [
-                    "Address",
-                    "3374 Olen Thomas Drive Frisco Texas 75034",
-                    "352 Illinois Avenue Yamhill Oregon(OR) 97148",
-                    "1402 Pearcy Avenue Fort Wayne  Indiana(IN) 46804",
-                    "3088 Terry Lane Orlando Florida(FL) 32801"
-                ]
-            ],
-            "fixedColumns": [
-                null,
-                null,
-                null,
-                null,
-                null
-            ],
-            "widths": [
-                80,
-                110,
-                110,
-                110,
-                110
-            ],
-            "header": [
-                "Table",
-                "1",
-                "2",
-                "3",
-                "4"
-            ],
-            "subheader": [
-                "Name",
-                "John",
-                "Mary",
-                "Larry",
-                "Tom"
-            ],
-            "chunkSize": {
-                "type": "dynamic",
-                "size": {
-                    "min": 9000,
-                    "max": 9100
-                }
+    setTimeout(function() {
+        //Save the docx file for reference
+        fs.writeFile(path.resolve(getPath(projectId), INPUT_FILE), template, "binary", function(err) {
+            if (err) {
+                console.error(err);
             }
+        });
+        var content = template;
+        var zip = new JSZip(content);
+        var doc = new Docxtemplater();
+        doc.loadZip(zip);
+        //set the templateVariables
+        doc.setData(data);
+        try {
+            // render the document (replace all occurences of {first_name} by John, {last_name} by Doe, ...)
+            doc.render()
         }
+        catch (error) {
+            var e = {
+                message: error.message,
+                name: error.name,
+                stack: error.stack,
+                properties: error.properties
+            };
+            console.log(JSON.stringify({error: e}));
+            fs.writeFileSync(path.resolve(getPath(projectId), ERROR_FILE), JSON.stringify({error: e}));
+            // The error thrown here contains additional information when logged with JSON.stringify (it contains a property object).
+            throw error;
+        }
+
+        var buf = doc.getZip().generate({type: 'nodebuffer'});
+
+        fs.writeFileSync(path.resolve(getPath(projectId), OUTPUT_FILE), buf);
+        fs.closeSync(fs.openSync(path.resolve(getPath(projectId), FINISH_FILE), "a"));
+    }, 10);
+};
+
+exports.fetchdocx = function(projectId, cb)  {
+    fs.readdir(getPath(projectId, false), function(err, files) {
+       if (err) {
+           cb({"status": "invalid id: " + projectId});
+       } else if (!files.indexOf(FINISH_FILE) == -1) {
+            cb({"status": "Processing"});
+       } else if (files.indexOf(ERROR_FILE) != -1) {
+           fs.readFile(path.resolve(getPath(projectId, false), ERROR_FILE), function(err, data) {
+               cb({"status": "error", "data": new Buffer(data).toString('base64')})
+           });
+       } else {
+           fs.readFile(path.resolve(getPath(projectId, false), OUTPUT_FILE), function(err, data) {
+               cb({"status": "success", "data": new Buffer(data).toString('base64')})
+           });
+       }
     });
-
-    try {
-        // render the document (replace all occurences of {first_name} by John, {last_name} by Doe, ...)
-        doc.render()
-    }
-    catch (error) {
-        var e = {
-            message: error.message,
-            name: error.name,
-            stack: error.stack,
-            properties: error.properties,
-        }
-        console.log(JSON.stringify({error: e}));
-        // The error thrown here contains additional information when logged with JSON.stringify (it contains a property object).
-        throw error;
-    }
-
-    var buf = doc.getZip()
-                 .generate({type: 'nodebuffer'});
-
-    // buf is a nodejs buffer, you can either write it to a file or do anything else with it.
-    fs.writeFileSync(path.resolve(process.env.STORAGE, 'output.docx'), buf);
-}
+};

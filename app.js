@@ -6,10 +6,9 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
 var index = require('./routes/index');
-var users = require('./routes/users');
-var docx = require('./routes/docx')
+var docx = require('./routes/docx');
 
-var app = express('services/docs-generator.js');
+var app = express();
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -23,8 +22,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/users', users);
-app.use('/docx', docx);
+app.use('/v1/docx', docx);
 app.use('/', index);
 
 // catch 404 and forward to error handler
