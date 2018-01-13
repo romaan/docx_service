@@ -1,10 +1,10 @@
 FROM node
 
 WORKDIR /home/node/app
-PORT 3000
+EXPOSE 3000
 COPY . .
 
-VOLUME
+VOLUME ["/home/node/app/data"]
 RUN npm install
 
-CMD npm run start
+CMD ["npm", "run", "start"]
