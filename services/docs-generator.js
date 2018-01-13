@@ -17,7 +17,7 @@ var getPath = function (directory, create) {
     return path.resolve(process.env.STORAGE, directory);
 };
 
-exports.docxprocessor = function(projectId, template, data) {
+exports.docxprocessor = function(projectId, template, data, cb) {
 
     setTimeout(function() {
         //Save the docx file for reference
@@ -45,14 +45,21 @@ exports.docxprocessor = function(projectId, template, data) {
             };
             console.log(JSON.stringify({error: e}));
             fs.writeFileSync(path.resolve(getPath(projectId), ERROR_FILE), JSON.stringify({error: e}));
-            // The error thrown here contains additional information when logged with JSON.stringify (it contains a property object).
-            throw error;
+            if (typeof cb === "function") {
+                cb();
+            }
         }
 
         var buf = doc.getZip().generate({type: 'nodebuffer'});
 
-        fs.writeFileSync(path.resolve(getPath(projectId), OUTPUT_FILE), buf);
-        fs.closeSync(fs.openSync(path.resolve(getPath(projectId), FINISH_FILE), "a"));
+        fs.writeFile(path.resolve(getPath(projectId), OUTPUT_FILE), buf, "binary", function(err) {
+            if (!err) {
+                fs.closeSync(fs.openSync(path.resolve(getPath(projectId), FINISH_FILE), "a"));
+                if (typeof cb === "function") {
+                    cb();
+                }
+            }
+        });
     }, 10);
 };
 
