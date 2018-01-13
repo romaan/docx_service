@@ -13,3 +13,7 @@ A micro service offers rest APIs to prepare MS WORD document using a template sy
 
 - Build: docker build -t "docx-service" .
 - Execute: docker run --name docx-service -p 3000:3000 -v docx-service-data:/home/node/app/data -d docx-service
+
+## Note:
+
+Please read the .env for the environment variables including basic authentication credentials
