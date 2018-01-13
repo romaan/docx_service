@@ -18,10 +18,10 @@ describe('DocxProcessor', function() {
         var id = "unique-id-1234";
         var template = readTemplate("simple.docx");
         docxprocessor.docxprocessor(id, template, data, function() {
-
+            expect(fs.existsSync(path.resolve(process.env.STORAGE, id, "input.docx"))).to.be.true;
+            expect(fs.existsSync(path.resolve(process.env.STORAGE, id, "output.docx"))).to.be.true;
+            expect(fs.existsSync(path.resolve(process.env.STORAGE, id, "finish.txt"))).to.be.true;
         });
     });
-    it('should process template with table', function() {
 
-    });
 });
